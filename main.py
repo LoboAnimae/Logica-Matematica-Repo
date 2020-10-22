@@ -11,15 +11,6 @@ class console_manager(object):
   def clear(self):
     system('cls') if self.os == 'nt' else system('clear')
 
-
-
-cm = console_manager()
-print('Hello')
-input('Press enter to continue\n>>> ')
-cm.clear()
-
-input('Cleared the screen!')
-
 tokens = (
   'VARIABLE',
   'NOT',
@@ -43,11 +34,10 @@ t_LBRACKET = r'\('
 t_RBRACKET = r'\)'
 t_EQUALS = r'\='
 
-
 t_ignore = r' '
 
 def t_VARIABLE(t):
-  r'[q-z]'
+  r'[p-z]'
   t.type = 'VARIABLE'
   return t
 
@@ -65,7 +55,14 @@ def t_True(t):
   if t.value == '1': t.value = True
   return t
 
-
+precedence = (
+  ('left', 'DOUBLEIMPLIES'),
+  ('left', 'IMPLIES'),
+  ('left', 'OR'),
+  ('left', 'AND'),
+  ('left', 'NOT'),
+  ('left', 'LBRACKET')
+)
 
 current_lexer = lex.lex()
 
@@ -75,8 +72,8 @@ def p_create(p):
          | equal_var
          | empty 
   """
-  print("FOUND", p[1])
-  print(use(p[1]))
+  print("TREE", p[1])
+  print('Status: ' + str(use(p[1])))
 
 def p_equal_var(p):
   """
@@ -84,7 +81,7 @@ def p_equal_var(p):
   """
   p[0] = ('=', p[1], p[3])
 
-def parameter(p):
+def p_parameter(p):
   """
   parameter : parameter AND parameter
             | parameter OR parameter
@@ -100,7 +97,6 @@ def p_character_not(p):
             | NOT parameter
   """
   p[0] = (p[1], p[2])
-  
 
 def p_brackets(p):
   """
@@ -123,7 +119,7 @@ def p_bool(p):
 
 def p_empty(p):
   """
-  empty :  
+  empty : 
   """
   p[0] = None
 
@@ -131,4 +127,22 @@ parser = yacc.yacc()
 env = {}
 
 def use(p):
-  
+  try:
+    if type(p) == tuple:
+      global env
+      if p[0] == '=>': return False if use(p[1]) == True and not (use(p[2])) else True
+      elif p[0] == '<=>': return True if use(p[1]) == use(p[2]) else False
+      elif p[0] == '^': return (use(p[1]) and use(p[2]))
+      elif p[0] == 'o': return (use(p[1]) or use(p[2]))
+      elif p[0] == '~': return not use(p[1])
+      elif p[0] == '=': env[p[1]] = use(p[2])
+      elif p[0] == 'VARIABLE': return 'Syntax error: VARIABLE NOT FOUND' if p[1] not in env else env[p[1]]
+    else: return p
+  except: print('Invalid Statement')
+
+while True:
+    try: 
+      s = input('>>> ')
+      console_manager().clear()
+    except EOFError: break
+    parser.parse(s)
